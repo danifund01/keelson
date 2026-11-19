@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import type { Entry } from '../../src/format/schema.js';
@@ -107,6 +107,26 @@ describe('newEntry', () => {
     expect(() => newEntry(repo.root, input({ anchors: [{ path: 'big.txt', range: [1, 1] }] }), config, NOW)).toThrow(/1 MiB/);
     repo.write('edge.txt', 'a'.repeat(1024 * 1024 - 1) + '\n');
     expect(newEntry(repo.root, input({ anchors: [{ path: 'edge.txt', range: [1, 1] }] }), config, NOW).status).toBe('verified');
+  });
+
+  test('symlink inside the repo pointing to a denied file is refused', () => {
+    const repo = repoWithSource();
+    repo.write('.env', 'X=1\n');
+    symlinkSync(join(repo.root, '.env'), join(repo.root, 'src', 'link.ts'), 'file');
+    expect(() => newEntry(repo.root, input({ anchors: [{ path: 'src/link.ts', range: [1, 1] }] }), config, NOW)).toThrow(/denied/);
+  });
+
+  test('symlink inside the repo pointing to a gitignored file is refused', () => {
+    const repo = repoWithSource();
+    repo.write('.gitignore', 'private.txt\n');
+    repo.write('private.txt', 'hidden\n');
+    symlinkSync(join(repo.root, 'private.txt'), join(repo.root, 'src', 'link.ts'), 'file');
+    expect(() => newEntry(repo.root, input({ anchors: [{ path: 'src/link.ts', range: [1, 1] }] }), config, NOW)).toThrow(/denied/);
+  });
+
+  test('anchor to a directory gives a clear LifecycleError', () => {
+    const repo = repoWithSource();
+    expect(() => newEntry(repo.root, input({ anchors: [{ path: 'src', range: [1, 1] }] }), config, NOW)).toThrow(LifecycleError);
   });
 
   test('anchor inside a directory whose name starts with two dots is accepted', () => {

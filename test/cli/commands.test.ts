@@ -38,7 +38,7 @@ describe('init', () => {
     const r = await cli(repo, ['init']);
     expect(r).toEqual({ code: 0, out: 'ok init .keelson\n', err: '' });
     expect(existsSync(join(repo.root, '.keelson', 'entries'))).toBe(true);
-    expect(JSON.parse(readFileSync(join(repo.root, '.keelson', 'config.json'), 'utf8'))).toEqual({ trustedAuthors: ['owner@example.com'] });
+    expect(JSON.parse(readFileSync(join(repo.root, '.keelson', 'config.json'), 'utf8'))).toEqual({ trusted_authors: ['owner@example.com'] });
     expect(readFileSync(join(repo.root, '.keelson', '.gitignore'), 'utf8')).toBe('.local/\n');
   });
 
@@ -99,6 +99,28 @@ describe('note', () => {
     const r = await note(repo, ['--body-file', '.env.local']);
     expect(r.code).toBe(1);
     expect(entryFiles(repo)).toEqual([]);
+  });
+
+  test('note with a --body-file outside the repo that matches a deny glob is refused', async () => {
+    const repo = await initRepo();
+    const elsewhere = tmpRepo();
+    elsewhere.write('.env', 'NEXT_PUBLIC_SITE=hello\n');
+    elsewhere.write('keys/server.pem', 'not really a key\n');
+    for (const f of ['.env', 'keys/server.pem']) {
+      const r = await note(repo, ['--body-file', join(elsewhere.root, f)]);
+      expect(r.code, f).toBe(1);
+      expect(r.err).toMatch(/denied/);
+    }
+    expect(entryFiles(repo)).toEqual([]);
+  });
+
+  test('note with a --body-file outside the repo that is not denied is accepted', async () => {
+    const repo = await initRepo();
+    const elsewhere = tmpRepo();
+    elsewhere.write('notes.md', 'plain evidence\n');
+    const r = await note(repo, ['--body-file', join(elsewhere.root, 'notes.md')]);
+    expect(r.code).toBe(0);
+    expect(readEntry(repo.root, r.id).body).toBe('plain evidence\n');
   });
 
   test('note validation errors exit 1: missing summary, bad kind, bad anchor syntax, unknown flag', async () => {
@@ -243,13 +265,30 @@ describe('verify, show, list', () => {
     expect(r.err).toContain('01JD0000000000000000000099.md');
   });
 
-  test('show prints the entry file', async () => {
+  test('show prints the effective status, then the entry file', async () => {
     const repo = await initRepo();
     const e = await note(repo);
     const r = await cli(repo, ['show', e.id]);
     expect(r.code).toBe(0);
-    expect(r.out).toBe(readFileSync(join(repo.root, '.keelson', 'entries', `${e.id}.md`), 'utf8'));
+    expect(r.out).toBe('effective_status: hypothesis\n' + readFileSync(join(repo.root, '.keelson', 'entries', `${e.id}.md`), 'utf8'));
     expect((await cli(repo, ['show', '01JD9999999999999999999999'])).code).toBe(1);
+  });
+
+  test('show of a verified entry committed by an untrusted author reports hypothesis', async () => {
+    const repo = await initRepo();
+    const v = await note(repo, ['--anchor', 'src/a.ts:1-1']);
+    repo.commit('external memory', 'stranger@example.org');
+    expect((await cli(repo, ['show', v.id])).out.split('\n')[0]).toBe('effective_status: hypothesis');
+  });
+
+  test('show re-checks anchors and reports and persists stale', async () => {
+    const repo = await initRepo();
+    const v = await note(repo, ['--anchor', 'src/a.ts:1-1']);
+    repo.write('src/a.ts', 'changed\n');
+    const r = await cli(repo, ['show', v.id]);
+    expect(r.out.split('\n')[0]).toBe('effective_status: stale');
+    expect(r.out).toContain('status: stale');
+    expect(readEntry(repo.root, v.id).status).toBe('stale');
   });
 
   test('list prints one line per entry and filters by area and status', async () => {

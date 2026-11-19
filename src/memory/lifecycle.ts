@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { readFileSync, realpathSync, statSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { monotonicFactory } from 'ulidx';
 import { createAnchor } from '../anchor/hash.js';
@@ -48,21 +48,32 @@ export function readAnchorable(root: string, rawPath: string, config: Config): {
   }
   if (isDenied(root, repoPath, config)) throw new LifecycleError(`anchor path is denied: ${repoPath}`);
   const full = join(root, repoPath);
-  let size: number;
+  let stat: Stats;
   let real: string;
   try {
-    size = statSync(full).size;
+    stat = statSync(full);
     real = realpathSync.native(full);
   } catch {
     throw new LifecycleError(`anchor file not found: ${repoPath}`);
   }
+  if (!stat.isFile()) throw new LifecycleError(`anchor is not a regular file: ${repoPath}`);
+  let realRepoPath: string;
   try {
-    toRepoPath(realpathSync.native(root), real);
+    realRepoPath = toRepoPath(realpathSync.native(root), real);
   } catch {
     throw new LifecycleError(`anchor resolves outside the repository: ${repoPath}`);
   }
-  if (size > MAX_ANCHOR_BYTES) throw new LifecycleError(`anchor file is larger than 1 MiB: ${repoPath}`);
-  const buf = readFileSync(full);
+  // A symlink must not reach a denied target either.
+  if (realRepoPath !== repoPath && isDenied(root, realRepoPath, config)) {
+    throw new LifecycleError(`anchor path is denied (link target): ${repoPath}`);
+  }
+  if (stat.size > MAX_ANCHOR_BYTES) throw new LifecycleError(`anchor file is larger than 1 MiB: ${repoPath}`);
+  let buf: Buffer;
+  try {
+    buf = readFileSync(full);
+  } catch (e) {
+    throw new LifecycleError(`cannot read anchor file ${repoPath}: ${(e as NodeJS.ErrnoException).code ?? 'unknown error'}`);
+  }
   if (buf.includes(0)) throw new LifecycleError(`anchor file looks binary: ${repoPath}`);
   return { repoPath, text: buf.toString('utf8') };
 }

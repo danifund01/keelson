@@ -5,6 +5,14 @@
  */
 const SECRET_WORDS = '(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|token)';
 
+/**
+ * An assigned value counts only when it looks like a literal: quoted, or an
+ * unquoted run of 6+ characters mixing letters and digits. This leaves out
+ * type annotations (`token: string`) and identifiers (`process.env.X`).
+ */
+const LITERAL_VALUE =
+  '(?:"[^"\\s]{6,}"|\'[^\'\\s]{6,}\'|(?=[A-Za-z0-9_+/!@#$%^&*-]*[0-9])(?=[A-Za-z0-9_+/!@#$%^&*-]*[A-Za-z])[A-Za-z0-9_+/!@#$%^&*-]{6,}(?![\\w.(]))';
+
 const PATTERNS: readonly (readonly [string, RegExp])[] = [
   ['private-key', /-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----/],
   ['aws-access-key', new RegExp('\\b(?:AK' + 'IA|AS' + 'IA)[0-9A-Z]{16}\\b')],
@@ -13,14 +21,7 @@ const PATTERNS: readonly (readonly [string, RegExp])[] = [
   ['api-key', new RegExp('\\b(?:sb_secret_|sbp_|xox[abprs]-)' + '[A-Za-z0-9_-]{20,}')],
   ['jwt', /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/],
   ['database-url', /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s:/@]+:[^\s@$]+@[^\s]+/],
-  [
-    'secret-assignment',
-    new RegExp(
-      '\\b\\w*' + SECRET_WORDS + '\\w*["\']?\\s*[:=]\\s*' +
-        '(?:"[^"\\s]{6,}"|\'[^\'\\s]{6,}\'|[A-Za-z0-9_+/!@#$%^&*-]{6,}(?![\\w.(]))',
-      'i',
-    ),
-  ],
+  ['secret-assignment', new RegExp('\\b\\w*' + SECRET_WORDS + '\\w*["\']?\\s*[:=]\\s*' + LITERAL_VALUE, 'i')],
 ];
 
 /** Returns the name of the first secret-like pattern found, or null. */

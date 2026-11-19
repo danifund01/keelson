@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs, type ParseArgsConfig } from 'node:util';
-import { isDenied } from '../guard/deny.js';
+import { isDenied, matchesDenyGlob } from '../guard/deny.js';
 import type { Config } from '../store/config.js';
 import { findRepoRoot, OutsideRepoError, toRepoPath } from '../store/repo.js';
 import type { CliIo } from './run.js';
@@ -67,7 +67,17 @@ export function oneId(positionals: string[], command: string): string {
   return id;
 }
 
-/** Body from --body or --body-file (never both). A body file inside the repo must not be denied. */
+/** Inside the repo: deny globs plus .gitignore. Outside: deny globs on the path and file name. */
+function pathIsDenied(root: string, absPath: string, config: Config): boolean {
+  try {
+    return isDenied(root, toRepoPath(root, absPath), config);
+  } catch (e) {
+    if (e instanceof OutsideRepoError) return matchesDenyGlob(absPath, config);
+    throw e;
+  }
+}
+
+/** Body from --body or --body-file (never both). The body file, or its link target, must not be denied. */
 export function readBody(
   values: { body?: string | undefined; 'body-file'?: string | undefined },
   io: CliIo,
@@ -78,13 +88,15 @@ export function readBody(
   if (body !== undefined && bodyFile !== undefined) throw new CliError('use either --body or --body-file, not both');
   if (bodyFile === undefined) return body ?? '';
   const full = resolve(io.cwd, bodyFile);
-  let repoPath: string | null = null;
+  let real = full;
   try {
-    repoPath = toRepoPath(root, full);
-  } catch (e) {
-    if (!(e instanceof OutsideRepoError)) throw e;
+    real = realpathSync.native(full);
+  } catch {
+    // Missing file: the read below reports it.
   }
-  if (repoPath !== null && isDenied(root, repoPath, config)) throw new CliError(`body file is denied: ${repoPath}`);
+  for (const p of new Set([full, real])) {
+    if (pathIsDenied(root, p, config)) throw new CliError(`body file is denied: ${bodyFile}`);
+  }
   try {
     return readFileSync(full, 'utf8');
   } catch {

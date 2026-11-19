@@ -54,8 +54,8 @@ Output is one short line on purpose: agents read it, and every extra line costs 
 | `promote <id>` | A person approves an entry. Needs an interactive terminal. | `ok <id> verified` |
 | `rule add --area <a> --summary <s> [--body <t> \| --body-file <f>]` | A person adds a rule; its text is stored literally. Needs an interactive terminal. | `ok <id> verified` |
 | `verify [--json]` | Re-checks every anchor: moved code is relocated, changed code goes `stale`, deleted or renamed files go `archived`. | `ok verified=N relocated=N stale=N archived=N errors=N` |
-| `show <id>` | Prints the entry file. | the file |
-| `list [--area <a>] [--status <s>] [--json]` | One line per entry with its effective status. A `verified` entry last committed by someone outside `trustedAuthors` is shown as `hypothesis`. | `<id> <status> <area> <summary>` |
+| `show <id>` | Re-checks the anchors (saving any change), then prints the status to trust and the entry file. | `effective_status: <status>` and the file |
+| `list [--area <a>] [--status <s>] [--json]` | One line per entry with its effective status. A `verified` entry last committed by someone outside `trusted_authors` is shown as `hypothesis`. | `<id> <status> <area> <summary>` |
 
 The session id comes from `--session` or the `KEELSON_SESSION` environment variable.
 

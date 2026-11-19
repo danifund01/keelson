@@ -94,21 +94,21 @@ Reubicación: si el rango ya no coincide, el lector puede deslizar una ventana d
 | `stale` | `hypothesis` | El contenido anclado vuelve a coincidir. Necesita una nueva confirmación para volver a `verified`. |
 | cualquiera | `archived` | Un archivo anclado se borró o se renombró, o la entrada se resolvió (`resolved_by` asignado). |
 
-Confianza: una entrada `verified` cuyo archivo confirmó por última vez un autor ajeno a `trustedAuthors` se trata como `hypothesis` al mostrarla o compilarla. Las herramientas no escriben esa rebaja en disco.
+Confianza: una entrada `verified` cuyo archivo confirmó por última vez un autor ajeno a `trusted_authors` se trata como `hypothesis` al mostrarla o compilarla. Las herramientas no escriben esa rebaja en disco.
 
 ## Configuración (`.keelson/config.json`)
 
 ```json
 {
-  "formatVersion": 1,
-  "rootIndexTokens": 1500,
-  "hypothesisExpirySessions": 5,
+  "format_version": 1,
+  "root_index_tokens": 1500,
+  "hypothesis_expiry_sessions": 5,
   "deny": [],
-  "trustedAuthors": ["dev@example.com"]
+  "trusted_authors": ["dev@example.com"]
 }
 ```
 
-Todas las claves son opcionales. `deny` añade globs a la lista de prohibidos de serie y no puede quitar ninguno.
+Las claves van en snake_case, como en el frontmatter de las entradas. Todas las claves son opcionales. `deny` añade globs a la lista de prohibidos de serie y no puede quitar ninguno.
 
 ## Archivos prohibidos
 

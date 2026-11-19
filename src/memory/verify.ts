@@ -57,9 +57,16 @@ export function verifyEntry(root: string, entry: Entry, config: Config = loadCon
 export function verifyAll(root: string): { results: VerifyResult[]; errors: { file: string; message: string }[] } {
   const config = loadConfig(root);
   const { entries, errors } = listEntries(root);
-  const results = entries.map((e) => verifyEntry(root, e, config));
-  for (const r of results) {
-    if (r.changed) updateEntry(root, r.entry);
+  const results: VerifyResult[] = [];
+  for (const e of entries) {
+    // One broken entry is reported and never stops the others.
+    try {
+      const r = verifyEntry(root, e, config);
+      if (r.changed) updateEntry(root, r.entry);
+      results.push(r);
+    } catch (err) {
+      errors.push({ file: `.keelson/entries/${e.id}.md`, message: err instanceof Error ? err.message : String(err) });
+    }
   }
   return { results, errors };
 }

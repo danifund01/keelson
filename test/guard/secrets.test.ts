@@ -35,4 +35,13 @@ describe('findSecret', () => {
     expect(findSecret('function sk-ip() and task-list items')).toBeNull();
     expect(findSecret('')).toBeNull();
   });
+
+  test('findSecret returns null for TypeScript type annotations and placeholders', () => {
+    expect(findSecret('type Session = { token: string }')).toBeNull();
+    expect(findSecret('apiKey: string;')).toBeNull();
+    expect(findSecret('secretKey: Buffer')).toBeNull();
+    expect(findSecret('token: undefined')).toBeNull();
+    expect(findSecret('password: Password | null')).toBeNull();
+    expect(findSecret('const accessKey: ReadonlyArray<string> = []')).toBeNull();
+  });
 });

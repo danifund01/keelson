@@ -30,6 +30,14 @@ function ignoredByGit(root: string, repoPath: string): boolean {
   return true; // git failed: fail closed
 }
 
+/** Glob check only, for paths outside the repository (no .gitignore applies there). */
+export function matchesDenyGlob(path: string, config: Config): boolean {
+  const posix = path.replace(/\\/g, '/');
+  const name = posix.slice(posix.lastIndexOf('/') + 1);
+  const match = matcher([...DEFAULT_DENY, ...config.deny]);
+  return match(posix) || match(name);
+}
+
 export function isDenied(root: string, repoPath: string, config: Config): boolean {
   if (matcher([...DEFAULT_DENY, ...config.deny])(repoPath)) return true;
   return ignoredByGit(root, repoPath);

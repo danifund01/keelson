@@ -22,12 +22,13 @@ export class ConfigError extends Error {
   override name = 'ConfigError';
 }
 
+/** On disk the keys are snake_case, like the entry frontmatter. */
 const configSchema = z.strictObject({
-  formatVersion: z.literal(1).optional(),
-  rootIndexTokens: z.number().int().positive().optional(),
-  hypothesisExpirySessions: z.number().int().positive().optional(),
+  format_version: z.literal(1).optional(),
+  root_index_tokens: z.number().int().positive().optional(),
+  hypothesis_expiry_sessions: z.number().int().positive().optional(),
   deny: z.array(z.string().min(1)).optional(),
-  trustedAuthors: z.array(z.string().min(1)).optional(),
+  trusted_authors: z.array(z.string().min(1)).optional(),
 });
 
 export function configPath(root: string): string {
@@ -56,9 +57,9 @@ export function loadConfig(root: string): Config {
   const c = parsed.data;
   return {
     formatVersion: 1,
-    rootIndexTokens: c.rootIndexTokens ?? DEFAULT_CONFIG.rootIndexTokens,
-    hypothesisExpirySessions: c.hypothesisExpirySessions ?? DEFAULT_CONFIG.hypothesisExpirySessions,
+    rootIndexTokens: c.root_index_tokens ?? DEFAULT_CONFIG.rootIndexTokens,
+    hypothesisExpirySessions: c.hypothesis_expiry_sessions ?? DEFAULT_CONFIG.hypothesisExpirySessions,
     deny: c.deny ?? [],
-    trustedAuthors: c.trustedAuthors ?? [],
+    trustedAuthors: c.trusted_authors ?? [],
   };
 }

@@ -94,21 +94,21 @@ Relocation: when the range no longer matches, a reader may slide a window of the
 | `stale` | `hypothesis` | The anchored content matches again. It needs a new confirmation to become `verified`. |
 | any | `archived` | An anchored file was deleted or renamed, or the entry was resolved (`resolved_by` set). |
 
-Trust: a `verified` entry whose file was last committed by an author outside the configured `trustedAuthors` is treated as `hypothesis` when shown or compiled. Tools do not write that downgrade to disk.
+Trust: a `verified` entry whose file was last committed by an author outside the configured `trusted_authors` is treated as `hypothesis` when shown or compiled. Tools do not write that downgrade to disk.
 
 ## Configuration (`.keelson/config.json`)
 
 ```json
 {
-  "formatVersion": 1,
-  "rootIndexTokens": 1500,
-  "hypothesisExpirySessions": 5,
+  "format_version": 1,
+  "root_index_tokens": 1500,
+  "hypothesis_expiry_sessions": 5,
   "deny": [],
-  "trustedAuthors": ["dev@example.com"]
+  "trusted_authors": ["dev@example.com"]
 }
 ```
 
-Every key is optional. `deny` adds globs to the built-in deny list and cannot remove any.
+Keys are snake_case, like the entry frontmatter. Every key is optional. `deny` adds globs to the built-in deny list and cannot remove any.
 
 ## Denied files
 

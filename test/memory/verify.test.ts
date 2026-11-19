@@ -5,7 +5,7 @@ import type { Entry } from '../../src/format/schema.js';
 import { newEntry, type NewEntryInput } from '../../src/memory/lifecycle.js';
 import { verifyAll, verifyEntry } from '../../src/memory/verify.js';
 import { DEFAULT_CONFIG } from '../../src/store/config.js';
-import { keelsonDir, readEntry, writeNewEntry } from '../../src/store/store.js';
+import { keelsonDir, readEntry, updateEntry, writeNewEntry } from '../../src/store/store.js';
 import { makeId } from '../helpers/entries.js';
 import { tmpRepo, type TmpRepo } from '../helpers/tmp-repo.js';
 
@@ -143,6 +143,16 @@ describe('verify', () => {
     const { repo, entry } = setup(undefined, 'disputed');
     repo.write('src/f.ts', SOURCE.replace('return 1', 'return 2'));
     expect(verifyEntry(repo.root, entry).entry.status).toBe('stale');
+  });
+
+  test('hand-edited anchor pointing to a directory goes stale and others still verify', () => {
+    const { repo, entry } = setup();
+    updateEntry(repo.root, { ...entry, anchors: [{ ...entry.anchors[0]!, path: 'src' }] });
+    const good = { ...entry, id: makeId() };
+    writeNewEntry(repo.root, good);
+    const { results, errors } = verifyAll(repo.root);
+    expect(errors).toEqual([]);
+    expect(results.map((r) => r.reason).sort()).toEqual(['ok', 'stale']);
   });
 
   test('corrupt entry file appears in errors and others still verify', () => {

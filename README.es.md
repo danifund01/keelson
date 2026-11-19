@@ -54,8 +54,8 @@ La salida es una sola línea corta a propósito: la leen los agentes, y cada lí
 | `promote <id>` | Una persona aprueba una entrada. Requiere una terminal interactiva. | `ok <id> verified` |
 | `rule add --area <a> --summary <s> [--body <t> \| --body-file <f>]` | Una persona añade una regla; su texto se guarda literal. Requiere una terminal interactiva. | `ok <id> verified` |
 | `verify [--json]` | Vuelve a comprobar todos los anclajes: el código desplazado se reubica, el código cambiado pasa a `stale` y los archivos borrados o renombrados pasan a `archived`. | `ok verified=N relocated=N stale=N archived=N errors=N` |
-| `show <id>` | Muestra el archivo de la entrada. | el archivo |
-| `list [--area <a>] [--status <s>] [--json]` | Una línea por entrada con su estado efectivo. Una entrada `verified` cuyo último commit es de alguien ajeno a `trustedAuthors` se muestra como `hypothesis`. | `<id> <estado> <área> <resumen>` |
+| `show <id>` | Vuelve a comprobar los anclajes (guardando cualquier cambio) y muestra el estado en que se puede confiar y el archivo de la entrada. | `effective_status: <estado>` y el archivo |
+| `list [--area <a>] [--status <s>] [--json]` | Una línea por entrada con su estado efectivo. Una entrada `verified` cuyo último commit es de alguien ajeno a `trusted_authors` se muestra como `hypothesis`. | `<id> <estado> <área> <resumen>` |
 
 El id de sesión sale de `--session` o de la variable de entorno `KEELSON_SESSION`.
 
