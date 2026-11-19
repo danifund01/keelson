@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import type { Entry } from '../../src/format/schema.js';
@@ -46,6 +46,17 @@ describe('verify', () => {
     expect(onDisk.anchors[0]?.range).toEqual([5, 7]);
     expect(onDisk.anchors[0]?.hash).toBe(entry.anchors[0]?.hash);
     expect(onDisk.status).toBe('verified');
+  });
+
+  test('verifyAll persist false reports changes but leaves entry files unchanged', () => {
+    const { repo, entry } = setup();
+    const file = join(keelsonDir(repo.root), 'entries', `${entry.id}.md`);
+    const before = readFileSync(file, 'utf8');
+    repo.write('src/f.ts', SOURCE.replace('return 1', 'return 2'));
+    const { results } = verifyAll(repo.root, { persist: false });
+    expect(results[0]?.reason).toBe('stale');
+    expect(results[0]?.entry.status).toBe('stale');
+    expect(readFileSync(file, 'utf8')).toBe(before);
   });
 
   test('anchored lines edited → stale', () => {

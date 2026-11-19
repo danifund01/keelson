@@ -119,6 +119,19 @@ Keys are snake_case, like the entry frontmatter. Every key is optional. `deny` a
 
 Tools never read or anchor: `.env*`, `.dev.vars*`, `*.pem`, `*.key`, `certificate.json`, `deployment-info.json`, `backups/**`, `.claude/settings.local.json`, anything ignored by `.gitignore`, and the globs in `deny`. Entry text that looks like a secret is rejected.
 
+## Compiled outputs
+
+`keelson compile` derives these files from the entries. They are not part of the format contract: their layout may change between tool versions, and they are always regenerated, never merged by hand.
+
+| Path | Content |
+|---|---|
+| `.keelson/index.md` | Root index: one row per area (or group of areas) with load-when globs, estimated cost, summary and freshness. At most `root_index_tokens` estimated tokens. |
+| `.keelson/index/<n>[-<m>...].md` | Nested index levels, used only when the root would exceed its budget. |
+| `.agents/skills/keelson-<slug>/SKILL.md`, and identical copies under `.claude/skills/` and `.gemini/skills/` | One skill per area: entries grouped by kind, bodies copied literally, non-verified items labeled. |
+| `AGENTS.md` | Only the text between `<!-- keelson:begin generated do-not-edit -->` and `<!-- keelson:end -->`. |
+
+Every generated file except `AGENTS.md` contains the line `<!-- keelson:generated do-not-edit -->`. Tools only overwrite or delete files that carry it. Generated files are meant to be committed.
+
 ## Compatibility
 
 - A reader rejects any `format_version` it does not know, with an explicit error. It never guesses.

@@ -119,6 +119,19 @@ Las claves van en snake_case, como en el frontmatter de las entradas. Todas las 
 
 Las herramientas nunca leen ni anclan: `.env*`, `.dev.vars*`, `*.pem`, `*.key`, `certificate.json`, `deployment-info.json`, `backups/**`, `.claude/settings.local.json`, todo lo que ignore `.gitignore` y los globs de `deny`. Se rechaza el texto de una entrada que parezca contener un secreto.
 
+## Salidas compiladas
+
+`keelson compile` deriva estos archivos de las entradas. No forman parte del contrato del formato: su estructura puede cambiar entre versiones de la herramienta, y siempre se regeneran, nunca se fusionan a mano.
+
+| Ruta | Contenido |
+|---|---|
+| `.keelson/index.md` | Índice raíz: una fila por área (o grupo de áreas) con sus globs de carga, costo estimado, resumen y frescura. Como máximo `root_index_tokens` tokens estimados. |
+| `.keelson/index/<n>[-<m>...].md` | Niveles anidados del índice, solo cuando la raíz superaría su presupuesto. |
+| `.agents/skills/keelson-<slug>/SKILL.md`, con copias idénticas en `.claude/skills/` y `.gemini/skills/` | Una skill por área: entradas agrupadas por tipo, cuerpos copiados literalmente y lo no verificado etiquetado. |
+| `AGENTS.md` | Solo el texto entre `<!-- keelson:begin generated do-not-edit -->` y `<!-- keelson:end -->`. |
+
+Todo archivo generado, salvo `AGENTS.md`, contiene la línea `<!-- keelson:generated do-not-edit -->`. Las herramientas solo sobrescriben o borran archivos que la llevan. Los archivos generados están pensados para versionarse.
+
 ## Compatibilidad
 
 - Un lector rechaza con un error explícito cualquier `format_version` que no conozca. Nunca adivina.

@@ -2,7 +2,7 @@
 
 Anchored, hash-verified memory for coding agents, shared by every agent and model that works on a repository.
 
-> **Status: alpha.** The memory core works (this README covers it). The budgeted index, hooks, metrics and viewer are still to come. Nothing here sends data over the network.
+> **Status: alpha.** The memory core and the budgeted index work (this README covers them). Hooks, metrics and the viewer are still to come. Nothing here sends data over the network.
 
 Coding agents start every session from zero. They pay again to load fixed rules and to re-read code they already diagnosed in an earlier session. keelson stores what a session learned (findings, discards, decisions, hypotheses) as small files inside your repository, each anchored to the lines of code that back it. Before any of it is trusted, keelson re-checks those lines: if the code changed, the memory is marked stale instead of being served as fact.
 
@@ -55,11 +55,32 @@ Output is one short line on purpose: agents read it, and every extra line costs 
 | `rule add --area <a> --summary <s> [--body <t> \| --body-file <f>]` | A person adds a rule; its text is stored literally. Needs an interactive terminal. | `ok <id> verified` |
 | `verify [--json]` | Re-checks every anchor: moved code is relocated, changed code goes `stale`, deleted or renamed files go `archived`. | `ok verified=N relocated=N stale=N archived=N errors=N` |
 | `show <id>` | Re-checks the anchors (saving any change), then prints the status to trust and the entry file. | `effective_status: <status>` and the file |
-| `list [--area <a>] [--status <s>] [--json]` | One line per entry with its effective status. A `verified` entry last committed by someone outside `trusted_authors` is shown as `hypothesis`. | `<id> <status> <area> <summary>` |
+| `list [--area <a>] [--status <s>] [--json]` | One line per entry with its effective status. A `verified` entry is shown as `hypothesis` if anyone outside `trusted_authors` committed a change to its file. | `<id> <status> <area> <summary>` |
+| `compile [--check] [--adopt-agents-md]` | Re-checks anchors and builds the root index (`.keelson/index.md`, within `root_index_tokens`), one skill per area in `.agents/skills`, `.claude/skills` and `.gemini/skills`, and the keelson block of `AGENTS.md`. `--check` writes nothing and exits 1 if any of that is out of date. | `ok compile areas=N skills=N index=T/B levels=L descriptions=~D written=W removed=R` |
 
 The session id comes from `--session` or the `KEELSON_SESSION` environment variable.
 
-Exit codes: `0` ok, `1` error (message on stderr as `error: ...`), `2` unknown command, `3` the action needs a person at an interactive terminal.
+Exit codes: `0` ok, `1` error (message on stderr as `error: ...`) or `compile --check` found outdated files, `2` unknown command or bad usage, `3` the action needs a person at an interactive terminal.
+
+## Compile for agents
+
+`keelson compile` turns memory into files that agents already read. Commit them, so agents without keelson (for example in the cloud) see the same memory. If two branches conflict on them, run `keelson compile` again instead of merging by hand.
+
+- **Index:** `.keelson/index.md` lists each area with when to load it, its estimated cost, a summary and its freshness. It never exceeds `root_index_tokens` (default 1500): with many areas it splits into nested levels under `.keelson/index/`.
+- **Skills:** one `SKILL.md` per area, copied to each agent's folder. Its `description` is the trigger. Stale, disputed and hypothesis items are labeled "verify before use".
+- **AGENTS.md:** keelson owns only the block between `<!-- keelson:begin ... -->` and `<!-- keelson:end -->`. It holds the universal rules (rules without `load_when`) and a pointer to the index. If your `AGENTS.md` has no block, keelson never touches it: run `keelson compile --adopt-agents-md` yourself in a terminal to see the block and append it. Claude Code users can import it from `CLAUDE.md` with `@AGENTS.md`.
+- **Human files are never overwritten.** Every generated file carries `<!-- keelson:generated do-not-edit -->`. A file without that mark at a generated path stops the compile.
+- **Summaries in always-loaded text come from people.** Set `areas.<name>.description` in `.keelson/config.json`. Without it, the summary is derived from the area name and its globs, never from what agents wrote.
+- **Skill descriptions are fixed context** in agents that list skills. `compile` reports their estimated total and warns when it exceeds `root_index_tokens`.
+
+In CI, trust needs the full git history:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- run: npx keelson compile --check
+```
 
 ## Safety
 

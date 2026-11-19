@@ -42,11 +42,16 @@ export function tmpRepo(): TmpRepo {
   };
 }
 
-/** A `git clone --depth 1` of the repo, removed after each test. */
-export function shallowClone(repo: TmpRepo): string {
-  const parent = realpathSync.native(mkdtempSync(join(tmpdir(), 'keelson-shallow-')));
+/** A `git clone <args>` of the repo, removed after each test. */
+export function cloneRepo(repo: TmpRepo, args: string[] = []): string {
+  const parent = realpathSync.native(mkdtempSync(join(tmpdir(), 'keelson-clone-')));
   created.push(parent);
   const dest = join(parent, 'clone');
-  execFileSync('git', ['clone', '-q', '--depth', '1', pathToFileURL(repo.root).href, dest], { stdio: 'ignore' });
+  execFileSync('git', ['clone', '-q', ...args, pathToFileURL(repo.root).href, dest], { stdio: 'ignore' });
   return dest;
+}
+
+/** A `git clone --depth 1` of the repo, removed after each test. */
+export function shallowClone(repo: TmpRepo): string {
+  return cloneRepo(repo, ['--depth', '1']);
 }

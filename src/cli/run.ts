@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { compile } from './commands/compile.js';
 import { confirm } from './commands/confirm.js';
 import { init } from './commands/init.js';
 import { list } from './commands/list.js';
@@ -21,7 +22,7 @@ export interface CliIo {
 
 export type Command = (args: string[], io: CliIo) => Promise<number>;
 
-const commands: Record<string, Command> = { init, note, confirm, resolve, promote, rule, verify, show, list };
+const commands: Record<string, Command> = { init, note, confirm, resolve, promote, rule, verify, show, list, compile };
 
 const USAGE = `Usage: keelson <command> [options]
 
@@ -38,6 +39,8 @@ Commands:
   show <id>                print an entry
   list [--area a] [--status s] [--json]
                            one line per entry with its effective status
+  compile [--check] [--adopt-agents-md]
+                           build the index, area skills and AGENTS.md block
 
 Options:
   --version                print version
