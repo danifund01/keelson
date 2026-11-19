@@ -94,7 +94,7 @@ Relocation: when the range no longer matches, a reader may slide a window of the
 | `stale` | `hypothesis` | The anchored content matches again. It needs a new confirmation to become `verified`. |
 | any | `archived` | An anchored file was deleted or renamed, or the entry was resolved (`resolved_by` set). |
 
-Trust: a `verified` entry whose file was last committed by an author outside the configured `trusted_authors` is treated as `hypothesis` when shown or compiled. Tools do not write that downgrade to disk.
+Trust: a `verified` entry stays `verified` when shown or compiled only if every author of every commit that touched its file is in `trusted_authors` (case ignored). Otherwise it is treated as `hypothesis`. An entry file with no commits yet keeps its stored status. Tools do not write that downgrade to disk. Trust needs full git history: in a shallow clone, tools that apply it fail with an error.
 
 ## Configuration (`.keelson/config.json`)
 
@@ -104,11 +104,16 @@ Trust: a `verified` entry whose file was last committed by an author outside the
   "root_index_tokens": 1500,
   "hypothesis_expiry_sessions": 5,
   "deny": [],
-  "trusted_authors": ["dev@example.com"]
+  "trusted_authors": ["dev@example.com"],
+  "areas": {
+    "auth": { "description": "Login, sessions and request origins." }
+  }
 }
 ```
 
 Keys are snake_case, like the entry frontmatter. Every key is optional. `deny` adds globs to the built-in deny list and cannot remove any.
+
+`areas` holds human-written settings per area name. `description` (1 to 200 characters, one line) is the area's summary in the compiled index and the trigger in its skill. Without it, a description is derived from the area name and its `load_when` globs, never from entry summaries.
 
 ## Denied files
 

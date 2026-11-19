@@ -94,7 +94,7 @@ Reubicación: si el rango ya no coincide, el lector puede deslizar una ventana d
 | `stale` | `hypothesis` | El contenido anclado vuelve a coincidir. Necesita una nueva confirmación para volver a `verified`. |
 | cualquiera | `archived` | Un archivo anclado se borró o se renombró, o la entrada se resolvió (`resolved_by` asignado). |
 
-Confianza: una entrada `verified` cuyo archivo confirmó por última vez un autor ajeno a `trusted_authors` se trata como `hypothesis` al mostrarla o compilarla. Las herramientas no escriben esa rebaja en disco.
+Confianza: una entrada `verified` sigue como `verified` al mostrarla o compilarla solo si todos los autores de todos los commits que tocaron su archivo están en `trusted_authors` (sin distinguir mayúsculas). Si no, se trata como `hypothesis`. Un archivo de entrada todavía sin commits conserva su estado guardado. Las herramientas no escriben esa rebaja en disco. La confianza necesita la historia completa de git: en un clon superficial, las herramientas que la aplican fallan con un error.
 
 ## Configuración (`.keelson/config.json`)
 
@@ -104,11 +104,16 @@ Confianza: una entrada `verified` cuyo archivo confirmó por última vez un auto
   "root_index_tokens": 1500,
   "hypothesis_expiry_sessions": 5,
   "deny": [],
-  "trusted_authors": ["dev@example.com"]
+  "trusted_authors": ["dev@example.com"],
+  "areas": {
+    "auth": { "description": "Login, sessions and request origins." }
+  }
 }
 ```
 
 Las claves van en snake_case, como en el frontmatter de las entradas. Todas las claves son opcionales. `deny` añade globs a la lista de prohibidos de serie y no puede quitar ninguno.
+
+`areas` guarda ajustes escritos por personas para cada nombre de área. `description` (de 1 a 200 caracteres, en una línea) es el resumen del área en el índice compilado y el disparador de su skill. Si falta, se deriva del nombre del área y de sus globs `load_when`, nunca de los resúmenes de las entradas.
 
 ## Archivos prohibidos
 
