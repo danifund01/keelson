@@ -54,7 +54,12 @@ export function verifyEntry(root: string, entry: Entry, config: Config = loadCon
   return { entry: changed ? { ...entry, status } : entry, changed, reason: 'ok' };
 }
 
-export function verifyAll(root: string): { results: VerifyResult[]; errors: { file: string; message: string }[] } {
+/** `persist: false` checks without writing, for `compile --check` and for callers that write later. */
+export function verifyAll(
+  root: string,
+  opts: { persist?: boolean } = {},
+): { results: VerifyResult[]; errors: { file: string; message: string }[] } {
+  const persist = opts.persist ?? true;
   const config = loadConfig(root);
   const { entries, errors } = listEntries(root);
   const results: VerifyResult[] = [];
@@ -62,7 +67,7 @@ export function verifyAll(root: string): { results: VerifyResult[]; errors: { fi
     // One broken entry is reported and never stops the others.
     try {
       const r = verifyEntry(root, e, config);
-      if (r.changed) updateEntry(root, r.entry);
+      if (persist && r.changed) updateEntry(root, r.entry);
       results.push(r);
     } catch (err) {
       errors.push({ file: `.keelson/entries/${e.id}.md`, message: err instanceof Error ? err.message : String(err) });

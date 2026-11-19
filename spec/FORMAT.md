@@ -94,7 +94,7 @@ Relocation: when the range no longer matches, a reader may slide a window of the
 | `stale` | `hypothesis` | The anchored content matches again. It needs a new confirmation to become `verified`. |
 | any | `archived` | An anchored file was deleted or renamed, or the entry was resolved (`resolved_by` set). |
 
-Trust: a `verified` entry whose file was last committed by an author outside the configured `trusted_authors` is treated as `hypothesis` when shown or compiled. Tools do not write that downgrade to disk.
+Trust: a `verified` entry stays `verified` when shown or compiled only if every author of its file is in `trusted_authors` (case ignored). Otherwise it is treated as `hypothesis`. The authors are everyone who committed a change to the file, including a merge commit that adds or edits it, plus the current git user (`git config user.email`) when the file has uncommitted changes, so a compile before a commit predicts trust after it. An entry with no known author is treated as `hypothesis`. Tools do not write that downgrade to disk. Trust needs full git history: in a shallow clone, tools that apply it fail with an error.
 
 ## Configuration (`.keelson/config.json`)
 
@@ -104,15 +104,33 @@ Trust: a `verified` entry whose file was last committed by an author outside the
   "root_index_tokens": 1500,
   "hypothesis_expiry_sessions": 5,
   "deny": [],
-  "trusted_authors": ["dev@example.com"]
+  "trusted_authors": ["dev@example.com"],
+  "areas": {
+    "auth": { "description": "Login, sessions and request origins." }
+  }
 }
 ```
 
 Keys are snake_case, like the entry frontmatter. Every key is optional. `deny` adds globs to the built-in deny list and cannot remove any.
 
+`areas` holds human-written settings per area name. `description` (1 to 200 characters, one line) is the area's summary in the compiled index and the trigger in its skill. Without it, a description is derived from the area name and the `load_when` globs of entries whose authors are all trusted, never from entry summaries. An area that no trusted author used (and that `areas` does not name) is shown as `unverified-<hash>`, without its name or globs.
+
 ## Denied files
 
 Tools never read or anchor: `.env*`, `.dev.vars*`, `*.pem`, `*.key`, `certificate.json`, `deployment-info.json`, `backups/**`, `.claude/settings.local.json`, anything ignored by `.gitignore`, and the globs in `deny`. Entry text that looks like a secret is rejected.
+
+## Compiled outputs
+
+`keelson compile` derives these files from the entries. They are not part of the format contract: their layout may change between tool versions, and they are always regenerated, never merged by hand.
+
+| Path | Content |
+|---|---|
+| `.keelson/index.md` | Root index: one row per area (or group of areas) with load-when globs, estimated cost, summary and freshness. At most `root_index_tokens` estimated tokens. |
+| `.keelson/index/<n>[-<m>...].md` | Nested index levels, used only when the root would exceed its budget. |
+| `.agents/skills/keelson-<slug>/SKILL.md`, and identical copies under `.claude/skills/` and `.gemini/skills/` | One skill per area: entries grouped by kind, bodies copied literally, non-verified items labeled. |
+| `AGENTS.md` | Only the text between `<!-- keelson:begin generated do-not-edit -->` and `<!-- keelson:end -->`. |
+
+Every generated file except `AGENTS.md` contains the line `<!-- keelson:generated do-not-edit -->`. Tools only overwrite or delete files that carry it. Generated files are meant to be committed.
 
 ## Compatibility
 

@@ -1,6 +1,6 @@
 import { effectiveStatus } from '../../memory/lifecycle.js';
 import { loadConfig } from '../../store/config.js';
-import { lastCommitterEmail } from '../../store/repo.js';
+import { entryAuthors } from '../../store/authors.js';
 import { listEntries } from '../../store/store.js';
 import type { Command } from '../run.js';
 import { EXIT_OK, parse, repoRoot } from '../shared.js';
@@ -9,12 +9,13 @@ export const list: Command = async (args, io) => {
   const { values } = parse(args, { area: { type: 'string' }, status: { type: 'string' }, json: { type: 'boolean' } });
   const root = repoRoot(io);
   const config = loadConfig(root);
+  const authors = entryAuthors(root);
   const { entries, errors } = listEntries(root);
   const rows = entries
     .filter((e) => values.area === undefined || e.area === values.area)
     .map((e) => ({
       id: e.id,
-      status: effectiveStatus(e, lastCommitterEmail(root, `.keelson/entries/${e.id}.md`), config),
+      status: effectiveStatus(e, authors.get(e.id) ?? [], config),
       kind: e.kind,
       area: e.area,
       summary: e.summary,

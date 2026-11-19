@@ -94,7 +94,7 @@ Reubicación: si el rango ya no coincide, el lector puede deslizar una ventana d
 | `stale` | `hypothesis` | El contenido anclado vuelve a coincidir. Necesita una nueva confirmación para volver a `verified`. |
 | cualquiera | `archived` | Un archivo anclado se borró o se renombró, o la entrada se resolvió (`resolved_by` asignado). |
 
-Confianza: una entrada `verified` cuyo archivo confirmó por última vez un autor ajeno a `trusted_authors` se trata como `hypothesis` al mostrarla o compilarla. Las herramientas no escriben esa rebaja en disco.
+Confianza: una entrada `verified` sigue como `verified` al mostrarla o compilarla solo si todos los autores de su archivo están en `trusted_authors` (sin distinguir mayúsculas). Si no, se trata como `hypothesis`. Los autores son todos los que hicieron commit de un cambio en el archivo, incluido un commit de merge que lo añade o lo edita, más el usuario actual de git (`git config user.email`) cuando el archivo tiene cambios sin commit; así, compilar antes de un commit anticipa la confianza que tendrá después. Una entrada sin ningún autor conocido se trata como `hypothesis`. Las herramientas no escriben esa rebaja en disco. La confianza necesita la historia completa de git: en un clon superficial, las herramientas que la aplican fallan con un error.
 
 ## Configuración (`.keelson/config.json`)
 
@@ -104,15 +104,33 @@ Confianza: una entrada `verified` cuyo archivo confirmó por última vez un auto
   "root_index_tokens": 1500,
   "hypothesis_expiry_sessions": 5,
   "deny": [],
-  "trusted_authors": ["dev@example.com"]
+  "trusted_authors": ["dev@example.com"],
+  "areas": {
+    "auth": { "description": "Login, sessions and request origins." }
+  }
 }
 ```
 
 Las claves van en snake_case, como en el frontmatter de las entradas. Todas las claves son opcionales. `deny` añade globs a la lista de prohibidos de serie y no puede quitar ninguno.
 
+`areas` guarda ajustes escritos por personas para cada nombre de área. `description` (de 1 a 200 caracteres, en una línea) es el resumen del área en el índice compilado y el disparador de su skill. Si falta, se deriva del nombre del área y de los globs `load_when` de las entradas cuyos autores son todos de confianza, nunca de los resúmenes de las entradas. Un área que ningún autor de confianza usó (y que `areas` no nombra) se muestra como `unverified-<hash>`, sin su nombre ni sus globs.
+
 ## Archivos prohibidos
 
 Las herramientas nunca leen ni anclan: `.env*`, `.dev.vars*`, `*.pem`, `*.key`, `certificate.json`, `deployment-info.json`, `backups/**`, `.claude/settings.local.json`, todo lo que ignore `.gitignore` y los globs de `deny`. Se rechaza el texto de una entrada que parezca contener un secreto.
+
+## Salidas compiladas
+
+`keelson compile` deriva estos archivos de las entradas. No forman parte del contrato del formato: su estructura puede cambiar entre versiones de la herramienta, y siempre se regeneran, nunca se fusionan a mano.
+
+| Ruta | Contenido |
+|---|---|
+| `.keelson/index.md` | Índice raíz: una fila por área (o grupo de áreas) con sus globs de carga, costo estimado, resumen y frescura. Como máximo `root_index_tokens` tokens estimados. |
+| `.keelson/index/<n>[-<m>...].md` | Niveles anidados del índice, solo cuando la raíz superaría su presupuesto. |
+| `.agents/skills/keelson-<slug>/SKILL.md`, con copias idénticas en `.claude/skills/` y `.gemini/skills/` | Una skill por área: entradas agrupadas por tipo, cuerpos copiados literalmente y lo no verificado etiquetado. |
+| `AGENTS.md` | Solo el texto entre `<!-- keelson:begin generated do-not-edit -->` y `<!-- keelson:end -->`. |
+
+Todo archivo generado, salvo `AGENTS.md`, contiene la línea `<!-- keelson:generated do-not-edit -->`. Las herramientas solo sobrescriben o borran archivos que la llevan. Los archivos generados están pensados para versionarse.
 
 ## Compatibilidad
 

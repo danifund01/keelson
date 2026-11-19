@@ -2,7 +2,7 @@
 
 Memoria anclada y verificada con hash para agentes de código, compartida por todos los agentes y modelos que trabajan en un repositorio.
 
-> **Estado: alfa.** El núcleo de memoria funciona (es lo que cubre este README). El índice con presupuesto, los hooks, las métricas y el visor llegarán después. Nada de esto envía datos por la red.
+> **Estado: alfa.** El núcleo de memoria y el índice con presupuesto funcionan (es lo que cubre este README). Los hooks, las métricas y el visor llegarán después. Nada de esto envía datos por la red.
 
 Los agentes de código empiezan cada sesión desde cero. Pagan otra vez por cargar reglas fijas y por volver a leer código que ya diagnosticaron en una sesión anterior. keelson guarda lo que aprendió una sesión (hallazgos, descartes, decisiones, hipótesis) como archivos pequeños dentro de tu repositorio, cada uno anclado a las líneas de código que lo respaldan. Antes de confiar en algo, keelson vuelve a comprobar esas líneas: si el código cambió, la memoria queda marcada como vencida en vez de servirse como un hecho.
 
@@ -55,11 +55,33 @@ La salida es una sola línea corta a propósito: la leen los agentes, y cada lí
 | `rule add --area <a> --summary <s> [--body <t> \| --body-file <f>]` | Una persona añade una regla; su texto se guarda literal. Requiere una terminal interactiva. | `ok <id> verified` |
 | `verify [--json]` | Vuelve a comprobar todos los anclajes: el código desplazado se reubica, el código cambiado pasa a `stale` y los archivos borrados o renombrados pasan a `archived`. | `ok verified=N relocated=N stale=N archived=N errors=N` |
 | `show <id>` | Vuelve a comprobar los anclajes (guardando cualquier cambio) y muestra el estado en que se puede confiar y el archivo de la entrada. | `effective_status: <estado>` y el archivo |
-| `list [--area <a>] [--status <s>] [--json]` | Una línea por entrada con su estado efectivo. Una entrada `verified` cuyo último commit es de alguien ajeno a `trusted_authors` se muestra como `hypothesis`. | `<id> <estado> <área> <resumen>` |
+| `list [--area <a>] [--status <s>] [--json]` | Una línea por entrada con su estado efectivo. Una entrada `verified` se muestra como `hypothesis` si alguien ajeno a `trusted_authors` hizo commit de un cambio en su archivo. | `<id> <estado> <área> <resumen>` |
+| `compile [--check] [--adopt-agents-md]` | Vuelve a comprobar los anclajes y genera el índice raíz (`.keelson/index.md`, dentro de `root_index_tokens`), una skill por área en `.agents/skills`, `.claude/skills` y `.gemini/skills`, y el bloque keelson de `AGENTS.md`. `--check` no escribe nada y sale con 1 si algo de eso está desactualizado. | `ok compile areas=N skills=N index=T/B levels=L descriptions=~D written=W removed=R` |
 
 El id de sesión sale de `--session` o de la variable de entorno `KEELSON_SESSION`.
 
-Códigos de salida: `0` correcto, `1` error (mensaje en stderr como `error: ...`), `2` comando desconocido, `3` la acción necesita una persona en una terminal interactiva.
+Códigos de salida: `0` correcto, `1` error (mensaje en stderr como `error: ...`) o `compile --check` encontró archivos desactualizados, `2` comando desconocido o uso incorrecto, `3` la acción necesita una persona en una terminal interactiva.
+
+## Compilar para los agentes
+
+`keelson compile` convierte la memoria en archivos que los agentes ya leen. Haz commit de ellos, así los agentes sin keelson (por ejemplo en la nube) ven la misma memoria. Si dos ramas chocan en esos archivos, ejecuta `keelson compile` otra vez en lugar de fusionarlos a mano.
+
+- **Índice:** `.keelson/index.md` lista cada área con cuándo cargarla, su costo estimado, un resumen y su frescura. Nunca supera `root_index_tokens` (1500 por defecto): con muchas áreas se divide en niveles anidados dentro de `.keelson/index/`.
+- **Skills:** un `SKILL.md` por área, copiado en la carpeta de cada agente. Su `description` es el disparador. Lo que está `stale`, `disputed` o es `hypothesis` lleva la etiqueta «verify before use».
+- **AGENTS.md:** keelson solo es dueño del bloque entre `<!-- keelson:begin ... -->` y `<!-- keelson:end -->`. Contiene las reglas universales (reglas sin `load_when`) y un puntero al índice. Si tu `AGENTS.md` no tiene bloque, keelson nunca lo toca: ejecuta tú `keelson compile --adopt-agents-md` en una terminal para ver el bloque y añadirlo. Quienes usan Claude Code pueden importarlo desde `CLAUDE.md` con `@AGENTS.md`.
+- **Nunca se sobrescriben archivos de personas.** Cada archivo generado lleva `<!-- keelson:generated do-not-edit -->`. Un archivo sin esa marca en una ruta generada detiene la compilación.
+- **El texto siempre cargado nunca lleva palabras sin confianza.** Define `areas.<nombre>.description` en `.keelson/config.json` para un resumen escrito por personas. Si falta, el resumen se deriva del nombre del área y de los globs de las entradas de autores de confianza, nunca de los resúmenes de las entradas. Un área que solo usaron autores ajenos aparece como `unverified-<hash>`, y sus reglas van en «Unverified rules», no en «Rules».
+- **compile nunca reescribe archivos de entradas.** Vuelve a comprobar los anclajes en memoria; ejecuta `keelson verify` para guardar las reubicaciones.
+- **Las descripciones de las skills son contexto fijo** en los agentes que listan skills. `compile` informa su total estimado y avisa si supera `root_index_tokens`.
+
+En la CI, la confianza necesita la historia completa de git:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- run: npx keelson compile --check
+```
 
 ## Seguridad
 

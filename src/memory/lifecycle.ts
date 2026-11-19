@@ -166,8 +166,18 @@ export function promote(entry: Entry, now: Date): Entry {
   return { ...entry, status: 'verified', confirmations: [...entry.confirmations, { at: now.toISOString(), author: 'human' }] };
 }
 
-export function effectiveStatus(entry: Entry, committerEmail: string | null, config: Config): Status {
-  if (entry.status !== 'verified' || committerEmail === null) return entry.status;
-  const email = committerEmail.toLowerCase();
-  return config.trustedAuthors.some((a) => a.toLowerCase() === email) ? 'verified' : 'hypothesis';
+/** True when the entry has known authors and every one of them is in `trustedAuthors`. */
+export function authorsTrusted(authors: readonly string[], config: Config): boolean {
+  const trusted = new Set(config.trustedAuthors.map((a) => a.toLowerCase()));
+  return authors.length > 0 && authors.every((a) => trusted.has(a.toLowerCase()));
+}
+
+/**
+ * `authors`: everyone who changed the entry file, including the current git
+ * user for uncommitted changes (see `entryAuthors`). A verified entry stays
+ * verified only if they are all trusted; no known author fails closed.
+ */
+export function effectiveStatus(entry: Entry, authors: readonly string[], config: Config): Status {
+  if (entry.status !== 'verified') return entry.status;
+  return authorsTrusted(authors, config) ? 'verified' : 'hypothesis';
 }

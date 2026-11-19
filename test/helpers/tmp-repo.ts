@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach } from 'vitest';
 
 const created: string[] = [];
@@ -39,4 +40,18 @@ export function tmpRepo(): TmpRepo {
       git('-c', `user.email=${email}`, 'commit', '-q', '--allow-empty', '-m', message);
     },
   };
+}
+
+/** A `git clone <args>` of the repo, removed after each test. */
+export function cloneRepo(repo: TmpRepo, args: string[] = []): string {
+  const parent = realpathSync.native(mkdtempSync(join(tmpdir(), 'keelson-clone-')));
+  created.push(parent);
+  const dest = join(parent, 'clone');
+  execFileSync('git', ['clone', '-q', ...args, pathToFileURL(repo.root).href, dest], { stdio: 'ignore' });
+  return dest;
+}
+
+/** A `git clone --depth 1` of the repo, removed after each test. */
+export function shallowClone(repo: TmpRepo): string {
+  return cloneRepo(repo, ['--depth', '1']);
 }

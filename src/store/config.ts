@@ -8,6 +8,8 @@ export type Config = {
   hypothesisExpirySessions: number;
   deny: string[];
   trustedAuthors: string[];
+  /** Human-written area settings; `description` becomes the index summary and skill trigger. */
+  areas: Record<string, { description?: string }>;
 };
 
 export const DEFAULT_CONFIG: Config = {
@@ -16,6 +18,7 @@ export const DEFAULT_CONFIG: Config = {
   hypothesisExpirySessions: 5,
   deny: [],
   trustedAuthors: [],
+  areas: {},
 };
 
 export class ConfigError extends Error {
@@ -29,6 +32,12 @@ const configSchema = z.strictObject({
   hypothesis_expiry_sessions: z.number().int().positive().optional(),
   deny: z.array(z.string().min(1)).optional(),
   trusted_authors: z.array(z.string().min(1)).optional(),
+  areas: z
+    .record(
+      z.string().min(1),
+      z.strictObject({ description: z.string().min(1).max(200).regex(/^[^\r\n]*$/, 'description must be one line').optional() }),
+    )
+    .optional(),
 });
 
 export function configPath(root: string): string {
@@ -40,7 +49,7 @@ export function loadConfig(root: string): Config {
   try {
     text = readFileSync(configPath(root), 'utf8');
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { ...DEFAULT_CONFIG, deny: [], trustedAuthors: [] };
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { ...DEFAULT_CONFIG, deny: [], trustedAuthors: [], areas: {} };
     throw e;
   }
   let raw: unknown;
@@ -61,5 +70,6 @@ export function loadConfig(root: string): Config {
     hypothesisExpirySessions: c.hypothesis_expiry_sessions ?? DEFAULT_CONFIG.hypothesisExpirySessions,
     deny: c.deny ?? [],
     trustedAuthors: c.trusted_authors ?? [],
+    areas: c.areas ?? {},
   };
 }

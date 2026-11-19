@@ -230,20 +230,25 @@ describe('resolve and promote', () => {
 });
 
 describe('effectiveStatus', () => {
-  test('verified committed by an author outside trustedAuthors is a hypothesis', () => {
-    expect(effectiveStatus(makeEntry({ status: 'verified' }), 'stranger@example.org', config)).toBe('hypothesis');
+  test('verified with an author outside trustedAuthors is a hypothesis', () => {
+    expect(effectiveStatus(makeEntry({ status: 'verified' }), ['stranger@example.org'], config)).toBe('hypothesis');
   });
 
-  test('verified committed by a trusted author stays verified (email case ignored)', () => {
-    expect(effectiveStatus(makeEntry({ status: 'verified' }), 'Owner@Example.com', config)).toBe('verified');
+  test('verified with only trusted authors stays verified (email case ignored)', () => {
+    expect(effectiveStatus(makeEntry({ status: 'verified' }), ['Owner@Example.com'], config)).toBe('verified');
   });
 
-  test('null committer (entry not committed yet, local) keeps the stored status', () => {
-    expect(effectiveStatus(makeEntry({ status: 'verified' }), null, config)).toBe('verified');
+  test('one untrusted author among trusted ones makes it a hypothesis', () => {
+    expect(effectiveStatus(makeEntry({ status: 'verified' }), ['owner@example.com', 'stranger@example.org'], config)).toBe('hypothesis');
+  });
+
+  test('no known author fails closed: verified becomes hypothesis', () => {
+    // Uncommitted work now carries the current git user (entryAuthors), so an empty list means unknown provenance.
+    expect(effectiveStatus(makeEntry({ status: 'verified' }), [], config)).toBe('hypothesis');
   });
 
   test('statuses other than verified are never upgraded', () => {
-    expect(effectiveStatus(makeEntry({ status: 'stale' }), 'stranger@example.org', config)).toBe('stale');
-    expect(effectiveStatus(makeEntry({ status: 'disputed' }), 'owner@example.com', config)).toBe('disputed');
+    expect(effectiveStatus(makeEntry({ status: 'stale' }), ['stranger@example.org'], config)).toBe('stale');
+    expect(effectiveStatus(makeEntry({ status: 'disputed' }), ['owner@example.com'], config)).toBe('disputed');
   });
 });
