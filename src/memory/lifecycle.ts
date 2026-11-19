@@ -1,6 +1,6 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ulid } from 'ulidx';
+import { monotonicFactory } from 'ulidx';
 import { createAnchor } from '../anchor/hash.js';
 import { SUMMARY_MAX, ULID_RE, type Anchor, type Entry, type Kind, type Provenance, type Status } from '../format/schema.js';
 import { isDenied } from '../guard/deny.js';
@@ -10,6 +10,8 @@ import { OutsideRepoError, toRepoPath } from '../store/repo.js';
 
 export const MAX_ANCHOR_BYTES = 1024 * 1024;
 const CHARS_PER_TOKEN = 3.5;
+// Monotonic within a process: entries created in the same millisecond still sort in creation order.
+const nextId = monotonicFactory();
 
 export class LifecycleError extends Error {
   override name = 'LifecycleError';
@@ -96,7 +98,7 @@ export function newEntry(root: string, input: NewEntryInput, config: Config, now
   else status = 'verified';
 
   return {
-    id: ulid(now.getTime()),
+    id: nextId(now.getTime()),
     kind: input.kind,
     status,
     area: input.area.trim(),
