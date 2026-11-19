@@ -166,8 +166,13 @@ export function promote(entry: Entry, now: Date): Entry {
   return { ...entry, status: 'verified', confirmations: [...entry.confirmations, { at: now.toISOString(), author: 'human' }] };
 }
 
-export function effectiveStatus(entry: Entry, committerEmail: string | null, config: Config): Status {
-  if (entry.status !== 'verified' || committerEmail === null) return entry.status;
-  const email = committerEmail.toLowerCase();
-  return config.trustedAuthors.some((a) => a.toLowerCase() === email) ? 'verified' : 'hypothesis';
+/**
+ * `authors`: everyone who committed a change to the entry file. Empty means not
+ * committed yet (local work), which keeps the stored status. Otherwise a
+ * verified entry stays verified only if every author is trusted.
+ */
+export function effectiveStatus(entry: Entry, authors: readonly string[], config: Config): Status {
+  if (entry.status !== 'verified' || authors.length === 0) return entry.status;
+  const trusted = new Set(config.trustedAuthors.map((a) => a.toLowerCase()));
+  return authors.every((a) => trusted.has(a.toLowerCase())) ? 'verified' : 'hypothesis';
 }

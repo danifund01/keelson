@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest';
 import { run } from '../../src/cli/run.js';
 import { readEntry } from '../../src/store/store.js';
 import { fakeIo } from '../helpers/io.js';
-import { tmpRepo, type TmpRepo } from '../helpers/tmp-repo.js';
+import { shallowClone, tmpRepo, type TmpRepo } from '../helpers/tmp-repo.js';
 
 const OK_ID = /^ok ([0-9A-HJKMNP-TV-Z]{26}) (\w+)\n$/;
 
@@ -318,6 +318,28 @@ describe('verify, show, list', () => {
     const v = await note(repo, ['--anchor', 'src/a.ts:1-1']);
     repo.commit('own memory');
     expect((await cli(repo, ['list'])).out).toBe(`${v.id} verified core a is 1\n`);
+  });
+
+  test('list keeps hypothesis when an owner commits a relocation of an external entry (#4)', async () => {
+    const repo = await initRepo();
+    repo.commit('seed');
+    const v = await note(repo, ['--anchor', 'src/a.ts:3-3']);
+    repo.commit('external memory', 'stranger@example.org');
+    repo.write('src/a.ts', '// top\nexport const a = 1;\nexport const b = 2;\nexport const c = 3;\n');
+    expect((await cli(repo, ['verify'])).out).toContain('relocated=1');
+    repo.commit('owner relocation');
+    expect((await cli(repo, ['list'])).out).toBe(`${v.id} hypothesis core a is 1\n`);
+  });
+
+  test('list in a shallow clone exits 1 with "shallow"', async () => {
+    const repo = await initRepo();
+    await note(repo, ['--anchor', 'src/a.ts:1-1']);
+    repo.commit('one');
+    repo.write('x.txt', 'x\n');
+    repo.commit('two');
+    const io = fakeIo({ cwd: shallowClone(repo) });
+    expect(await run(['list'], io)).toBe(1);
+    expect(io.err.join('')).toMatch(/^error: .*shallow/);
   });
 
   test('list reports corrupt files on stderr and exits 0', async () => {

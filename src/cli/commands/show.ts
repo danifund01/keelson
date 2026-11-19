@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { effectiveStatus } from '../../memory/lifecycle.js';
 import { verifyEntry } from '../../memory/verify.js';
 import { loadConfig } from '../../store/config.js';
-import { lastCommitterEmail } from '../../store/repo.js';
+import { entryAuthors } from '../../store/authors.js';
 import { keelsonDir, readEntry, updateEntry } from '../../store/store.js';
 import type { Command } from '../run.js';
 import { EXIT_OK, oneId, parse, repoRoot } from '../shared.js';
@@ -19,7 +19,7 @@ export const show: Command = async (args, io) => {
   const config = loadConfig(root);
   const checked = verifyEntry(root, readEntry(root, id), config);
   if (checked.changed) updateEntry(root, checked.entry);
-  const status = effectiveStatus(checked.entry, lastCommitterEmail(root, `.keelson/entries/${id}.md`), config);
+  const status = effectiveStatus(checked.entry, entryAuthors(root).get(id) ?? [], config);
   io.stdout(`effective_status: ${status}\n` + readFileSync(join(keelsonDir(root), 'entries', `${id}.md`), 'utf8'));
   return EXIT_OK;
 };
