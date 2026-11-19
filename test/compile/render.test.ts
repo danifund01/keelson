@@ -14,9 +14,9 @@ import type { Entry, Status } from '../../src/format/schema.js';
 import { DEFAULT_CONFIG } from '../../src/store/config.js';
 import { makeEntry } from '../helpers/entries.js';
 
-function me(overrides: Partial<Entry> = {}, status?: Status): ModelEntry {
+function me(overrides: Partial<Entry> = {}, status?: Status, trusted = true): ModelEntry {
   const entry = makeEntry(overrides);
-  return { entry, status: status ?? entry.status };
+  return { entry, status: status ?? entry.status, trusted };
 }
 
 function area(entries: ModelEntry[]): AreaModel {
@@ -74,6 +74,18 @@ describe('renderSkill', () => {
     const sections = skill.split('\n').filter((l) => l.startsWith('## '));
     expect(sections).toEqual(['## Decisions', '## Discards']);
     expect(skill).toContain('Freshness: fresh');
+  });
+
+  test('rules from untrusted authors are not shown under "## Rules" (written by people)', () => {
+    const own = me({ area: 'x', kind: 'rule', loadWhen: ['src/**'], summary: 'own rule' });
+    const foreign = me({ area: 'x', kind: 'rule', loadWhen: ['src/**'], summary: 'foreign rule' }, 'hypothesis', false);
+    const skill = renderSkill(area([own, foreign]));
+    const sections = skill.split('\n').filter((l) => l.startsWith('## '));
+    expect(sections).toEqual(['## Rules', '## Unverified rules']);
+    const rules = skill.slice(skill.indexOf('## Rules'), skill.indexOf('## Unverified rules'));
+    expect(rules).toContain('own rule');
+    expect(rules).not.toContain('foreign rule');
+    expect(skill.slice(skill.indexOf('## Unverified rules'))).toContain('### [hypothesis] foreign rule');
   });
 
   test('rendering is deterministic and carries no timestamps', () => {

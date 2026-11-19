@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { compareText } from './model.js';
 import { AGENTS_BEGIN, AGENTS_END, GENERATED_MARK } from './render.js';
 
@@ -23,12 +23,38 @@ function readText(root: string, path: string): string | null {
   return readFileSync(full, 'utf8');
 }
 
-function writeAtomic(root: string, path: string, content: string): void {
+function exists(full: string): boolean {
+  try {
+    lstatSync(full);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where a write to `path` really lands, following links. A link (on the file
+ * or on a parent folder) that leaves the repository is refused.
+ */
+function realTarget(root: string, path: string): string {
   const full = join(root, path);
-  mkdirSync(dirname(full), { recursive: true });
-  const tmp = `${full}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+  let probe = full;
+  while (!exists(probe)) probe = dirname(probe);
+  const real = realpathSync.native(probe);
+  const rel = relative(realpathSync.native(root), real);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new HumanFileError(`refusing to write ${path}: it links outside the repository`);
+  }
+  return probe === full ? real : join(real, relative(probe, full));
+}
+
+/** Temp file + rename on the link's target, so a symlinked file stays a link. */
+function writeAtomic(root: string, path: string, content: string): void {
+  const target = realTarget(root, path);
+  mkdirSync(dirname(target), { recursive: true });
+  const tmp = `${target}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   writeFileSync(tmp, content, { encoding: 'utf8', flag: 'wx' });
-  renameSync(tmp, full);
+  renameSync(tmp, target);
 }
 
 /** Generated files keelson may find on disk: the index levels and every keelson-* skill. */
@@ -71,6 +97,7 @@ function inEol(text: string, block: string): { eol: string; block: string } {
  */
 export function diffOutputs(root: string, files: Output[], agentsBlock: string): OutputDiff {
   const write: Output[] = [];
+  for (const f of [...files, { path: AGENTS_FILE, content: '' }]) realTarget(root, f.path);
   for (const f of files) {
     const current = readText(root, f.path);
     if (current === null) {
@@ -82,11 +109,18 @@ export function diffOutputs(root: string, files: Output[], agentsBlock: string):
     if (lf(current) !== f.content) write.push(f);
   }
 
-  const planned = new Set(files.map((f) => f.path));
+  // Compare real paths: with linked skill roots one file is reachable through several paths.
+  const planned = new Set(files.map((f) => realTarget(root, f.path)));
+  const seen = new Set<string>();
   const remove = candidates(root)
-    .filter((p) => !planned.has(p))
+    .sort(compareText)
     .filter((p) => readText(root, p)?.includes(GENERATED_MARK) === true)
-    .sort(compareText);
+    .filter((p) => {
+      const real = realTarget(root, p);
+      if (planned.has(real) || seen.has(real)) return false;
+      seen.add(real);
+      return true;
+    });
 
   const block = readAgents(root);
   let agents: AgentsState;
@@ -102,7 +136,8 @@ export function diffOutputs(root: string, files: Output[], agentsBlock: string):
 export function applyOutputs(root: string, diff: OutputDiff): void {
   for (const f of diff.write) writeAtomic(root, f.path, f.content);
   for (const p of diff.remove) {
-    const full = join(root, p);
+    const full = realTarget(root, p);
+    if (!existsSync(full)) continue;
     unlinkSync(full);
     const dir = dirname(full);
     if (readdirSync(dir).length === 0) rmdirSync(dir);

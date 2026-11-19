@@ -1,7 +1,6 @@
 import { compileRepo } from '../../compile/compile.js';
 import { compareText } from '../../compile/model.js';
 import { adoptAgentsMd, AGENTS_FILE, applyOutputs, diffOutputs } from '../../compile/outputs.js';
-import { updateEntry } from '../../store/store.js';
 import type { Command } from '../run.js';
 import { CliError, EXIT_ERROR, EXIT_OK, EXIT_USAGE, parse, repoRoot, requireHuman } from '../shared.js';
 
@@ -26,7 +25,6 @@ export const compile: Command = async (args, io) => {
     return EXIT_ERROR;
   }
 
-  for (const e of result.changed) updateEntry(root, e);
   applyOutputs(root, diff);
   let written = diff.write.length + (diff.agents.kind === 'write' ? 1 : 0);
   if (adopt && diff.agents.kind === 'unmanaged') {

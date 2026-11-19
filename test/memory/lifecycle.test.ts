@@ -242,8 +242,9 @@ describe('effectiveStatus', () => {
     expect(effectiveStatus(makeEntry({ status: 'verified' }), ['owner@example.com', 'stranger@example.org'], config)).toBe('hypothesis');
   });
 
-  test('no authors (entry not committed yet, local) keeps the stored status', () => {
-    expect(effectiveStatus(makeEntry({ status: 'verified' }), [], config)).toBe('verified');
+  test('no known author fails closed: verified becomes hypothesis', () => {
+    // Uncommitted work now carries the current git user (entryAuthors), so an empty list means unknown provenance.
+    expect(effectiveStatus(makeEntry({ status: 'verified' }), [], config)).toBe('hypothesis');
   });
 
   test('statuses other than verified are never upgraded', () => {

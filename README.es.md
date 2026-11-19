@@ -70,7 +70,8 @@ Códigos de salida: `0` correcto, `1` error (mensaje en stderr como `error: ...`
 - **Skills:** un `SKILL.md` por área, copiado en la carpeta de cada agente. Su `description` es el disparador. Lo que está `stale`, `disputed` o es `hypothesis` lleva la etiqueta «verify before use».
 - **AGENTS.md:** keelson solo es dueño del bloque entre `<!-- keelson:begin ... -->` y `<!-- keelson:end -->`. Contiene las reglas universales (reglas sin `load_when`) y un puntero al índice. Si tu `AGENTS.md` no tiene bloque, keelson nunca lo toca: ejecuta tú `keelson compile --adopt-agents-md` en una terminal para ver el bloque y añadirlo. Quienes usan Claude Code pueden importarlo desde `CLAUDE.md` con `@AGENTS.md`.
 - **Nunca se sobrescriben archivos de personas.** Cada archivo generado lleva `<!-- keelson:generated do-not-edit -->`. Un archivo sin esa marca en una ruta generada detiene la compilación.
-- **Los resúmenes del texto siempre cargado vienen de personas.** Define `areas.<nombre>.description` en `.keelson/config.json`. Si falta, el resumen se deriva del nombre del área y sus globs, nunca de lo que escribieron los agentes.
+- **El texto siempre cargado nunca lleva palabras sin confianza.** Define `areas.<nombre>.description` en `.keelson/config.json` para un resumen escrito por personas. Si falta, el resumen se deriva del nombre del área y de los globs de las entradas de autores de confianza, nunca de los resúmenes de las entradas. Un área que solo usaron autores ajenos aparece como `unverified-<hash>`, y sus reglas van en «Unverified rules», no en «Rules».
+- **compile nunca reescribe archivos de entradas.** Vuelve a comprobar los anclajes en memoria; ejecuta `keelson verify` para guardar las reubicaciones.
 - **Las descripciones de las skills son contexto fijo** en los agentes que listan skills. `compile` informa su total estimado y avisa si supera `root_index_tokens`.
 
 En la CI, la confianza necesita la historia completa de git:

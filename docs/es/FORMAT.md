@@ -94,7 +94,7 @@ Reubicación: si el rango ya no coincide, el lector puede deslizar una ventana d
 | `stale` | `hypothesis` | El contenido anclado vuelve a coincidir. Necesita una nueva confirmación para volver a `verified`. |
 | cualquiera | `archived` | Un archivo anclado se borró o se renombró, o la entrada se resolvió (`resolved_by` asignado). |
 
-Confianza: una entrada `verified` sigue como `verified` al mostrarla o compilarla solo si todos los autores de todos los commits que tocaron su archivo están en `trusted_authors` (sin distinguir mayúsculas). Si no, se trata como `hypothesis`. Un archivo de entrada todavía sin commits conserva su estado guardado. Las herramientas no escriben esa rebaja en disco. La confianza necesita la historia completa de git: en un clon superficial, las herramientas que la aplican fallan con un error.
+Confianza: una entrada `verified` sigue como `verified` al mostrarla o compilarla solo si todos los autores de su archivo están en `trusted_authors` (sin distinguir mayúsculas). Si no, se trata como `hypothesis`. Los autores son todos los que hicieron commit de un cambio en el archivo, incluido un commit de merge que lo añade o lo edita, más el usuario actual de git (`git config user.email`) cuando el archivo tiene cambios sin commit; así, compilar antes de un commit anticipa la confianza que tendrá después. Una entrada sin ningún autor conocido se trata como `hypothesis`. Las herramientas no escriben esa rebaja en disco. La confianza necesita la historia completa de git: en un clon superficial, las herramientas que la aplican fallan con un error.
 
 ## Configuración (`.keelson/config.json`)
 
@@ -113,7 +113,7 @@ Confianza: una entrada `verified` sigue como `verified` al mostrarla o compilarl
 
 Las claves van en snake_case, como en el frontmatter de las entradas. Todas las claves son opcionales. `deny` añade globs a la lista de prohibidos de serie y no puede quitar ninguno.
 
-`areas` guarda ajustes escritos por personas para cada nombre de área. `description` (de 1 a 200 caracteres, en una línea) es el resumen del área en el índice compilado y el disparador de su skill. Si falta, se deriva del nombre del área y de sus globs `load_when`, nunca de los resúmenes de las entradas.
+`areas` guarda ajustes escritos por personas para cada nombre de área. `description` (de 1 a 200 caracteres, en una línea) es el resumen del área en el índice compilado y el disparador de su skill. Si falta, se deriva del nombre del área y de los globs `load_when` de las entradas cuyos autores son todos de confianza, nunca de los resúmenes de las entradas. Un área que ningún autor de confianza usó (y que `areas` no nombra) se muestra como `unverified-<hash>`, sin su nombre ni sus globs.
 
 ## Archivos prohibidos
 

@@ -1,5 +1,4 @@
-import type { Entry } from '../format/schema.js';
-import { effectiveStatus, estimateTokens } from '../memory/lifecycle.js';
+import { authorsTrusted, effectiveStatus, estimateTokens } from '../memory/lifecycle.js';
 import { verifyAll } from '../memory/verify.js';
 import { entryAuthors } from '../store/authors.js';
 import { loadConfig } from '../store/config.js';
@@ -14,7 +13,7 @@ export class CompileError extends Error {
 
 export type CompileReport = { areas: number; skills: number; levels: number; indexTokens: number; budget: number; descriptionTokens: number };
 
-export type CompileResult = { files: Output[]; agentsBlock: string; report: CompileReport; changed: Entry[] };
+export type CompileResult = { files: Output[]; agentsBlock: string; report: CompileReport };
 
 /** Skill copy the index links to; the other roots hold identical copies. */
 const INDEX_SKILL_ROOT = '.agents/skills';
@@ -27,8 +26,8 @@ function depth(path: string): number {
 
 /**
  * Everything `compile` would write, computed without touching disk. Anchors
- * are re-verified in memory; `changed` holds entries whose verification moved
- * them, for the caller to persist once the outputs are known to be writable.
+ * are re-verified in memory only: compile never rewrites entry files, so
+ * whoever runs it never becomes an author of someone else's entry.
  */
 export function compileRepo(root: string): CompileResult {
   const config = loadConfig(root);
@@ -38,7 +37,10 @@ export function compileRepo(root: string): CompileResult {
     throw new CompileError(`cannot compile with unreadable entries: ${errors.map((e) => `${e.file}: ${e.message}`).join('; ')}`);
   }
 
-  const model = results.map((r) => ({ entry: r.entry, status: effectiveStatus(r.entry, authors.get(r.entry.id) ?? [], config) }));
+  const model = results.map((r) => {
+    const by = authors.get(r.entry.id) ?? [];
+    return { entry: r.entry, status: effectiveStatus(r.entry, by, config), trusted: authorsTrusted(by, config) };
+  });
   const areas = buildAreas(model, config);
 
   const skills: Output[] = [];
@@ -69,6 +71,5 @@ export function compileRepo(root: string): CompileResult {
       budget: config.rootIndexTokens,
       descriptionTokens: areas.reduce((s, a) => s + estimateTokens(a.description), 0),
     },
-    changed: results.filter((r) => r.changed).map((r) => r.entry),
   };
 }

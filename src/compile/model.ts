@@ -4,8 +4,12 @@ import type { Config } from '../store/config.js';
 
 export type Freshness = 'fresh' | 'unconfirmed' | 'verify-before-use';
 
-/** An entry with its effective status (trust applied, never persisted). */
-export type ModelEntry = { entry: Entry; status: Status };
+/**
+ * An entry with its effective status (trust applied, never persisted) and
+ * whether every author of its file is trusted. Only trusted entries may
+ * supply text that agents load in every session (area names, globs).
+ */
+export type ModelEntry = { entry: Entry; status: Status; trusted: boolean };
 
 export type AreaModel = {
   area: string;
@@ -36,7 +40,9 @@ export function cleanText(s: string, max: number): string {
     .replace(/[<>]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return flat.length <= max ? flat : flat.slice(0, max - 1).trimEnd() + '…';
+  // Count and cut by code point: splitting a surrogate pair would write U+FFFD and never compare equal again.
+  const chars = Array.from(flat);
+  return chars.length <= max ? flat : chars.slice(0, max - 1).join('').trimEnd() + '…';
 }
 
 export function slugify(area: string): string {
@@ -69,10 +75,16 @@ function freshnessOf(entries: ModelEntry[]): Freshness {
   return entries.every((e) => e.status === 'verified') ? 'fresh' : 'unconfirmed';
 }
 
-/** Built only from human config or the area name and globs: agent summaries never reach always-loaded text. */
-function describe(area: string, display: string, loadWhen: string[], config: Config): string {
+/**
+ * Built only from human config, or from the area name and globs of entries by
+ * trusted authors: agent summaries and untrusted text never reach always-loaded text.
+ */
+function describe(area: string, display: string, loadWhen: string[], nameTrusted: boolean, config: Config): string {
   const configured = config.areas[area]?.description;
   if (configured !== undefined) return cleanText(configured, DESCRIPTION_MAX);
+  if (!nameTrusted) {
+    return `Unverified project memory (area ${display}) from authors outside trusted_authors. Check against the code before use.`;
+  }
   let text = `Project memory for area "${display}".`;
   if (loadWhen.length > 0) {
     const shown = loadWhen.slice(0, GLOBS_SHOWN).map((g) => cleanText(g, GLOB_MAX));
@@ -90,17 +102,28 @@ export function buildAreas(entries: ModelEntry[], config: Config): AreaModel[] {
     list.push(m);
     byArea.set(m.entry.area, list);
   }
-  const names = [...byArea.keys()].sort(compareText);
+  const hash6 = (area: string) => createHash('sha256').update(area).digest('hex').slice(0, 6);
+  const areas = [...byArea.keys()].sort(compareText).map((area) => {
+    const list = (byArea.get(area) ?? []).sort(compareEntries);
+    const trusted = list.filter((m) => m.trusted);
+    // A name is shown only if a trusted author used it or a person configured it.
+    const nameTrusted = trusted.length > 0 || config.areas[area] !== undefined;
+    const base = nameTrusted ? slugify(area) : `unverified-${hash6(area)}`;
+    const display = nameTrusted ? cleanText(area, DISPLAY_MAX) : base;
+    const loadWhen = [...new Set(trusted.flatMap((m) => m.entry.loadWhen))].sort(compareText);
+    return { area, base, display, nameTrusted, loadWhen, list };
+  });
 
   const bySlug = new Map<string, number>();
-  for (const name of names) bySlug.set(slugify(name), (bySlug.get(slugify(name)) ?? 0) + 1);
+  for (const a of areas) bySlug.set(a.base, (bySlug.get(a.base) ?? 0) + 1);
 
-  return names.map((area) => {
-    const list = (byArea.get(area) ?? []).sort(compareEntries);
-    const base = slugify(area);
-    const slug = (bySlug.get(base) ?? 0) > 1 ? `${base}-${createHash('sha256').update(area).digest('hex').slice(0, 6)}` : base;
-    const loadWhen = [...new Set(list.flatMap((m) => m.entry.loadWhen))].sort(compareText);
-    const display = cleanText(area, DISPLAY_MAX);
-    return { area, display, slug, description: describe(area, display, loadWhen, config), loadWhen, freshness: freshnessOf(list), entries: list };
-  });
+  return areas.map(({ area, base, display, nameTrusted, loadWhen, list }) => ({
+    area,
+    display,
+    slug: (bySlug.get(base) ?? 0) > 1 ? `${base}-${hash6(area)}` : base,
+    description: describe(area, display, loadWhen, nameTrusted, config),
+    loadWhen,
+    freshness: freshnessOf(list),
+    entries: list,
+  }));
 }

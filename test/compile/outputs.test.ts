@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { adoptAgentsMd, applyOutputs, diffOutputs, HumanFileError, type Output } from '../../src/compile/outputs.js';
@@ -89,6 +89,41 @@ describe('diffOutputs and applyOutputs', () => {
     if (first === undefined) throw new Error('fixture');
     repo.write(first.path, first.content.replace(/\n/g, '\r\n'));
     expect(diffOutputs(repo.root, FILES, BLOCK).write).toEqual([]);
+  });
+});
+
+describe('linked outputs', () => {
+  test('a skills root linked to another removes each orphan once and finishes the run', () => {
+    const repo = tmpRepo();
+    mkdirSync(join(repo.root, '.agents', 'skills'), { recursive: true });
+    mkdirSync(join(repo.root, '.claude'), { recursive: true });
+    symlinkSync(join(repo.root, '.agents', 'skills'), join(repo.root, '.claude', 'skills'), 'junction');
+    repo.write('.agents/skills/keelson-old/SKILL.md', `---\nname: keelson-old\n---\n${GENERATED_MARK}\n`);
+    repo.write('.gemini/skills/keelson-old/SKILL.md', `---\nname: keelson-old\n---\n${GENERATED_MARK}\n`);
+    const diff = diffOutputs(repo.root, FILES, BLOCK);
+    expect(() => applyOutputs(repo.root, diff)).not.toThrow();
+    expect(existsSync(join(repo.root, '.agents/skills/keelson-old'))).toBe(false);
+    expect(existsSync(join(repo.root, '.gemini/skills/keelson-old'))).toBe(false);
+    expect(read(repo, 'AGENTS.md')).toBe(`${BLOCK}\n`);
+    expect(diffOutputs(repo.root, FILES, BLOCK)).toEqual({ write: [], remove: [], agents: { kind: 'current' } });
+  });
+
+  test('a symlinked AGENTS.md updates its target and stays a link', () => {
+    const repo = tmpRepo();
+    repo.write('CLAUDE.md', `Intro\n\n${AGENTS_BEGIN}\nold\n${AGENTS_END}\n`);
+    symlinkSync(join(repo.root, 'CLAUDE.md'), join(repo.root, 'AGENTS.md'), 'file');
+    applyOutputs(repo.root, diffOutputs(repo.root, FILES, BLOCK));
+    expect(lstatSync(join(repo.root, 'AGENTS.md')).isSymbolicLink()).toBe(true);
+    expect(read(repo, 'CLAUDE.md')).toBe(`Intro\n\n${BLOCK}\n`);
+  });
+
+  test('a generated path that links outside the repository is refused', () => {
+    const repo = tmpRepo();
+    const outside = tmpRepo();
+    outside.write('AGENTS.md', `${AGENTS_BEGIN}\nold\n${AGENTS_END}\n`);
+    symlinkSync(join(outside.root, 'AGENTS.md'), join(repo.root, 'AGENTS.md'), 'file');
+    expect(() => diffOutputs(repo.root, FILES, BLOCK)).toThrow(HumanFileError);
+    expect(() => diffOutputs(repo.root, FILES, BLOCK)).toThrow(/outside the repository/);
   });
 });
 

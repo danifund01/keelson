@@ -70,7 +70,8 @@ Exit codes: `0` ok, `1` error (message on stderr as `error: ...`) or `compile --
 - **Skills:** one `SKILL.md` per area, copied to each agent's folder. Its `description` is the trigger. Stale, disputed and hypothesis items are labeled "verify before use".
 - **AGENTS.md:** keelson owns only the block between `<!-- keelson:begin ... -->` and `<!-- keelson:end -->`. It holds the universal rules (rules without `load_when`) and a pointer to the index. If your `AGENTS.md` has no block, keelson never touches it: run `keelson compile --adopt-agents-md` yourself in a terminal to see the block and append it. Claude Code users can import it from `CLAUDE.md` with `@AGENTS.md`.
 - **Human files are never overwritten.** Every generated file carries `<!-- keelson:generated do-not-edit -->`. A file without that mark at a generated path stops the compile.
-- **Summaries in always-loaded text come from people.** Set `areas.<name>.description` in `.keelson/config.json`. Without it, the summary is derived from the area name and its globs, never from what agents wrote.
+- **Always-loaded text never carries untrusted words.** Set `areas.<name>.description` in `.keelson/config.json` for a human summary. Without it, the summary is derived from the area name and the globs of entries by trusted authors, never from entry summaries. An area only outside authors used shows up as `unverified-<hash>`, and their rules sit under "Unverified rules", not "Rules".
+- **compile never rewrites entry files.** It re-checks anchors in memory; run `keelson verify` to save relocations.
 - **Skill descriptions are fixed context** in agents that list skills. `compile` reports their estimated total and warns when it exceeds `root_index_tokens`.
 
 In CI, trust needs the full git history:

@@ -15,12 +15,16 @@ export class RenderError extends Error {
 const SUMMARY_MAX = 160;
 const MARKERS = [GENERATED_MARK, AGENTS_BEGIN, AGENTS_END];
 
-const SECTIONS: readonly [Kind, string][] = [
-  ['rule', 'Rules'],
-  ['decision', 'Decisions'],
-  ['finding', 'Findings'],
-  ['discard', 'Discards'],
-  ['hypothesis', 'Hypotheses'],
+const ofKind = (kind: Kind) => (m: ModelEntry) => m.entry.kind === kind;
+
+/** Only rules from trusted authors sit under "Rules", which DATA_NOTICE says people wrote. */
+const SECTIONS: readonly [string, (m: ModelEntry) => boolean][] = [
+  ['Rules', (m) => m.entry.kind === 'rule' && m.trusted],
+  ['Decisions', ofKind('decision')],
+  ['Findings', ofKind('finding')],
+  ['Discards', ofKind('discard')],
+  ['Hypotheses', ofKind('hypothesis')],
+  ['Unverified rules', (m) => m.entry.kind === 'rule' && !m.trusted],
 ];
 
 const LABELS: Record<Status, string> = {
@@ -47,8 +51,8 @@ function renderEntry(m: ModelEntry, level: string): string {
 
 export function renderSkill(area: AreaModel): string {
   const front = stringify({ name: `keelson-${area.slug}`, description: area.description }, { lineWidth: 0 });
-  const sections = SECTIONS.flatMap(([kind, title]) => {
-    const items = area.entries.filter((m) => m.entry.kind === kind);
+  const sections = SECTIONS.flatMap(([title, belongs]) => {
+    const items = area.entries.filter(belongs);
     return items.length === 0 ? [] : [`## ${title}\n\n${items.map((m) => renderEntry(m, '###')).join('\n')}`];
   });
   return [

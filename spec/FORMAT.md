@@ -94,7 +94,7 @@ Relocation: when the range no longer matches, a reader may slide a window of the
 | `stale` | `hypothesis` | The anchored content matches again. It needs a new confirmation to become `verified`. |
 | any | `archived` | An anchored file was deleted or renamed, or the entry was resolved (`resolved_by` set). |
 
-Trust: a `verified` entry stays `verified` when shown or compiled only if every author of every commit that touched its file is in `trusted_authors` (case ignored). Otherwise it is treated as `hypothesis`. An entry file with no commits yet keeps its stored status. Tools do not write that downgrade to disk. Trust needs full git history: in a shallow clone, tools that apply it fail with an error.
+Trust: a `verified` entry stays `verified` when shown or compiled only if every author of its file is in `trusted_authors` (case ignored). Otherwise it is treated as `hypothesis`. The authors are everyone who committed a change to the file, including a merge commit that adds or edits it, plus the current git user (`git config user.email`) when the file has uncommitted changes, so a compile before a commit predicts trust after it. An entry with no known author is treated as `hypothesis`. Tools do not write that downgrade to disk. Trust needs full git history: in a shallow clone, tools that apply it fail with an error.
 
 ## Configuration (`.keelson/config.json`)
 
@@ -113,7 +113,7 @@ Trust: a `verified` entry stays `verified` when shown or compiled only if every 
 
 Keys are snake_case, like the entry frontmatter. Every key is optional. `deny` adds globs to the built-in deny list and cannot remove any.
 
-`areas` holds human-written settings per area name. `description` (1 to 200 characters, one line) is the area's summary in the compiled index and the trigger in its skill. Without it, a description is derived from the area name and its `load_when` globs, never from entry summaries.
+`areas` holds human-written settings per area name. `description` (1 to 200 characters, one line) is the area's summary in the compiled index and the trigger in its skill. Without it, a description is derived from the area name and the `load_when` globs of entries whose authors are all trusted, never from entry summaries. An area that no trusted author used (and that `areas` does not name) is shown as `unverified-<hash>`, without its name or globs.
 
 ## Denied files
 
